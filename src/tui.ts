@@ -176,6 +176,7 @@ class MeetingTui {
     width: `100%-${menuWidth}`,
     height: 3,
     border: "line",
+    keys: true,
     mouse: true,
     padding: {
       left: 1,
@@ -269,6 +270,9 @@ class MeetingTui {
     this.bindCommandInput();
     this.menu.focus();
     this.menu.on("select", async (_item, index) => {
+      if (this.commandMode || this.modalOpen) {
+        return;
+      }
       await this.dispatch(menuItems[index].action);
     });
     this.setView("欢迎", this.renderHelp());
@@ -396,6 +400,7 @@ class MeetingTui {
     this.commandBuffer = "";
     this.ignoreNextCommandChar = "/";
     this.renderCommandInput();
+    this.commandInput.focus();
   }
 
   private exitCommandMode(): void {
@@ -1786,7 +1791,7 @@ function normalizeCommand(command: string, argument: string): MenuAction | "unkn
   if (["add", "join", "新增", "加入", "添加"].includes(normalized)) {
     return "add_agent";
   }
-  if (["switch", "stage", "切换"].includes(normalized)) {
+  if (["switch", "switch_stage", "切换", "切换阶段"].includes(normalized)) {
     return "switch_stage";
   }
   if (["timeline", "sequence", "seq", "时序", "时序图"].includes(normalized)) {
