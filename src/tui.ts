@@ -271,8 +271,7 @@ class MeetingTui {
       await this.dispatch(menuItems[index].action);
     });
     this.setView("欢迎", this.renderHelp());
-    this.logLine("TUI 已启动。请选择会议实例开始验证。");
-    await this.autoSelectFirstInstance();
+    this.logLine("TUI 已启动。请输入 init 或选择会议实例开始验证。");
     this.renderStatus();
     this.screen.render();
   }
@@ -715,18 +714,6 @@ class MeetingTui {
     }
   }
 
-  private async autoSelectFirstInstance(): Promise<void> {
-    const instances = await this.instancePaths();
-    const preferred =
-      instances.find((instancePath) => path.basename(instancePath) === "brainstorm_demo.yaml") ??
-      instances.find((instancePath) => !path.basename(instancePath).includes("deepseek")) ??
-      instances[0];
-    if (preferred) {
-      this.selectedInstancePath = preferred;
-      this.logLine(`已自动选择：${path.relative(process.cwd(), preferred)}`);
-    }
-  }
-
   private async selectInstance(): Promise<void> {
     const instances = await this.instancePaths();
     if (instances.length === 0) {
@@ -804,11 +791,19 @@ class MeetingTui {
   }
 
   private async initializeFresh(): Promise<void> {
-    const instancePath = this.requireInstancePath();
+    if (!this.selectedInstancePath) {
+      this.logLine("初始化前需要先选择会议实例。");
+      await this.selectInstance();
+      if (!this.selectedInstancePath) {
+        this.setView("初始化已取消", "未选择会议实例。请重新输入 init 或使用 select <关键词>。");
+        return;
+      }
+    }
+    const instancePath = this.selectedInstancePath;
     this.controller = new MeetingController({ outputRoot });
     await this.controller.initializeFromInstance(instancePath);
     this.lastRunDir = await this.controller.saveArtifacts();
-    this.logLine("会议已初始化，智能体已加载。");
+    this.logLine(`会议已初始化，智能体已加载：${path.relative(process.cwd(), instancePath)}`);
     this.showOverview();
   }
 
@@ -1258,7 +1253,7 @@ class MeetingTui {
       "也可以按 / 聚焦底部“指令输入”，输入指令后按 Enter 执行。",
       "",
       "建议的 MVP 验证流程：",
-      "1. 选择会议实例",
+      "1. 输入 init，并在弹出的列表中选择会议实例",
       "2. 初始化/加载智能体",
       "3. 查看已加载智能体",
       "4. 单步推进几轮",
@@ -1281,7 +1276,7 @@ class MeetingTui {
   private renderCommandHelp(): string {
     return [
       "常用指令：",
-      "init / 初始化                    初始化会议并加载智能体",
+      "init / 初始化                    选择会议实例并初始化加载智能体",
       "step / 下一步                     单步推进",
       "run / 运行                        运行到结束",
       "pause / 暂停                      暂停会议",
