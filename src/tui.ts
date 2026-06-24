@@ -1300,7 +1300,7 @@ class MeetingTui {
       "messages / 消息                   查看消息",
       "events / 事件                     查看事件",
       "handlers / 事件处理器             查看 event 被哪些处理器消费",
-      "timeline / 时序图                 查看阶段/智能体/消息/事件时序",
+      "timeline / 时序图                 查看阶段/智能体/消息/事件/处理器时序",
       "commands / 命令                   快速查看命令",
       "collapse all / 折叠 all           折叠全部时序阶段",
       "expand all / 展开 all             展开全部时序阶段",
@@ -1537,6 +1537,7 @@ function renderTimeline(
     "图例：",
     "  MSG = Message，智能体/用户发出的会议消息",
     "  EVT = Event，进入队列并影响后续调度的事件",
+    "  HND = Handler，事件从队列取出后被处理器消费的记录",
     "  [-] = 已展开，[+] = 已折叠，* = 当前阶段",
     "",
     "折叠/展开命令：collapse all、expand all、collapse <stage_id>、expand <stage_id>",
@@ -1547,12 +1548,15 @@ function renderTimeline(
     const stage = snapshot.meeting_type.stage_templates.find((item) => item.stage_id === stageId);
     const messages = snapshot.messages.filter((message) => message.stage_id === stageId);
     const events = snapshot.events.filter((event) => (event.stage_id ?? "meeting") === stageId);
+    const handlingRecords = (snapshot.event_handling_log ?? []).filter(
+      (record) => (record.stage_id ?? "meeting") === stageId,
+    );
     const isCollapsed = collapsedStages.has(stageId);
     const currentMark = stageId === currentStageId ? "*" : " ";
     const stageLabel = stage ? `${stage.stage_id} - ${stage.stage_name}` : stageId;
     lines.push(
       `${isCollapsed ? "[+]" : "[-]"}${currentMark} ${stageLabel}  ` +
-        `(MSG ${messages.length} / EVT ${events.length})`,
+        `(MSG ${messages.length} / EVT ${events.length} / HND ${handlingRecords.length})`,
     );
 
     if (isCollapsed) {
@@ -1573,10 +1577,16 @@ function renderTimeline(
         sortKey: `${event.created_at}-e-${index}`,
         event,
       })),
+      ...handlingRecords.map((record, index) => ({
+        kind: "handling" as const,
+        createdAt: record.created_at,
+        sortKey: `${record.created_at}-h-${index}`,
+        record,
+      })),
     ].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
     if (items.length === 0) {
-      lines.push("  暂无消息或事件。");
+      lines.push("  暂无消息、事件或处理记录。");
       lines.push("");
       continue;
     }
@@ -1589,6 +1599,22 @@ function renderTimeline(
             `${item.message.message_type} (${item.message.message_id})`,
         );
         lines.push(`      ${snippet(item.message.content, 120)}`);
+        continue;
+      }
+
+      if (item.kind === "handling") {
+        const route =
+          item.record.handler_id === "event_processor"
+            ? "EventQueue => EventProcessor"
+            : `EventProcessor => ${item.record.handler_name}`;
+        lines.push(
+          `  ${formatTime(item.createdAt)} HND ${route}: ` +
+            `${item.record.action} (${item.record.event_type})`,
+        );
+        lines.push(
+          `      ${item.record.handler_id} / ${item.record.phase} / turn ${item.record.turn_index}: ` +
+            `${snippet(item.record.effect, 120)}`,
+        );
         continue;
       }
 
@@ -1621,6 +1647,9 @@ function timelineStageIds(snapshot: MeetingRuntimeSnapshot): string[] {
   }
   for (const event of snapshot.events) {
     ids.add(event.stage_id ?? "meeting");
+  }
+  for (const record of snapshot.event_handling_log ?? []) {
+    ids.add(record.stage_id ?? "meeting");
   }
   return [...ids];
 }

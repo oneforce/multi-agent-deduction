@@ -135,6 +135,8 @@ final / 最终
 memory / 记忆
 ```
 
+`timeline / 时序图` 会显示 `MSG`、`EVT`、`HND` 三类记录，其中 `HND` 表示 event 被 EventProcessor、发言者选择器、记忆管理器等处理器消费的时序。
+
 完整跑完一次会议：
 
 ```bash
