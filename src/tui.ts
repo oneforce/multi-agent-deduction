@@ -258,6 +258,7 @@ class MeetingTui {
   private selectedInstancePath: string | null = null;
   private lastRunDir: string | null = null;
   private busy = false;
+  private modalOpen = false;
   private commandMode = false;
   private commandBuffer = "";
   private ignoreNextCommandChar: string | null = null;
@@ -279,18 +280,21 @@ class MeetingTui {
   private bindKeys(): void {
     this.screen.key(["C-c"], () => this.quit());
     this.screen.key(["q"], () => {
-      if (this.commandMode) {
+      if (this.commandMode || this.modalOpen) {
         return;
       }
       this.quit();
     });
     this.screen.key(["/"], () => {
-      if (this.commandMode) {
+      if (this.commandMode || this.modalOpen) {
         return;
       }
       this.enterCommandMode();
     });
     this.screen.key(["escape"], () => {
+      if (this.modalOpen) {
+        return;
+      }
       if (this.commandMode) {
         this.exitCommandMode();
         return;
@@ -299,49 +303,49 @@ class MeetingTui {
       this.screen.render();
     });
     this.screen.key(["?"], async () => {
-      if (!this.commandMode) await this.dispatch("help");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("help");
     });
     this.screen.key(["s"], async () => {
-      if (!this.commandMode) await this.dispatch("step");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("step");
     });
     this.screen.key(["g"], async () => {
-      if (!this.commandMode) await this.dispatch("run");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("run");
     });
     this.screen.key(["i"], async () => {
-      if (!this.commandMode) await this.dispatch("insert");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("insert");
     });
     this.screen.key(["f"], async () => {
-      if (!this.commandMode) await this.dispatch("force");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("force");
     });
     this.screen.key(["d"], async () => {
-      if (!this.commandMode) await this.dispatch("disable");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("disable");
     });
     this.screen.key(["p"], async () => {
-      if (!this.commandMode) await this.dispatch("pause");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("pause");
     });
     this.screen.key(["u"], async () => {
-      if (!this.commandMode) await this.dispatch("resume");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("resume");
     });
     this.screen.key(["a"], async () => {
-      if (!this.commandMode) await this.dispatch("agents");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("agents");
     });
     this.screen.key(["m"], async () => {
-      if (!this.commandMode) await this.dispatch("messages");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("messages");
     });
     this.screen.key(["e"], async () => {
-      if (!this.commandMode) await this.dispatch("events");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("events");
     });
     this.screen.key(["o"], async () => {
-      if (!this.commandMode) await this.dispatch("outputs");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("outputs");
     });
     this.screen.key(["t"], async () => {
-      if (!this.commandMode) await this.dispatch("timeline");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("timeline");
     });
     this.screen.key(["c"], async () => {
-      if (!this.commandMode) await this.dispatch("commands");
+      if (!this.commandMode && !this.modalOpen) await this.dispatch("commands");
     });
     this.screen.key(["r"], () => {
-      if (this.commandMode) {
+      if (this.commandMode || this.modalOpen) {
         return;
       }
       this.renderStatus();
@@ -352,7 +356,7 @@ class MeetingTui {
   private bindCommandInput(): void {
     this.renderCommandInput();
     this.screen.on("keypress", async (ch, key) => {
-      if (!this.commandMode) {
+      if (!this.commandMode || this.modalOpen) {
         return;
       }
       if (key.ctrl && key.name === "c") {
@@ -1182,12 +1186,14 @@ class MeetingTui {
   }
 
   private async ask(question: string): Promise<string | null> {
+    this.enterModalMode();
     this.prompt.show();
     this.prompt.focus();
     this.screen.render();
     return new Promise((resolve) => {
       this.prompt.input(question, "", (_error, value) => {
         this.prompt.hide();
+        this.exitModalMode();
         this.menu.focus();
         resolve(typeof value === "string" && value.trim() ? value.trim() : null);
       });
@@ -1195,6 +1201,7 @@ class MeetingTui {
   }
 
   private async select(title: string, labels: string[]): Promise<number | null> {
+    this.enterModalMode();
     this.selector.setLabel(` ${title} `);
     this.selector.setItems(labels);
     this.selector.select(0);
@@ -1208,6 +1215,7 @@ class MeetingTui {
         this.selector.removeListener("cancel", onCancel);
         this.selector.unkey("escape", onCancel);
         this.selector.hide();
+        this.exitModalMode();
         this.menu.focus();
       };
       const onSelect = (_item: blessed.Widgets.BlessedElement, index: number) => {
@@ -1232,6 +1240,22 @@ class MeetingTui {
 
   private logLine(message: string): void {
     this.log.log(`[${new Date().toLocaleTimeString()}] ${message}`);
+  }
+
+  private enterModalMode(): void {
+    this.modalOpen = true;
+    this.commandMode = false;
+    this.commandBuffer = "";
+    this.ignoreNextCommandChar = null;
+    this.renderCommandInput();
+  }
+
+  private exitModalMode(): void {
+    this.modalOpen = false;
+    this.commandMode = false;
+    this.commandBuffer = "";
+    this.ignoreNextCommandChar = null;
+    this.renderCommandInput();
   }
 
   private renderStatus(): void {
