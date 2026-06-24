@@ -1,0 +1,7 @@
+schema_id: review_output
+fields:
+  - strengths
+  - risks
+  - suggestions
+  - decision
+  - open_questions

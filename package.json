@@ -1,0 +1,28 @@
+{
+  "name": "multi-agent-meeting-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Config-driven MVP runtime for multi-agent meetings.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "cli": "tsx src/cli.ts",
+    "demo": "tsx src/cli.ts run configs/instances/meetings/brainstorm_demo.yaml --fresh",
+    "run": "tsx src/cli.ts",
+    "tui": "tsx src/tui.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "commander": "^12.1.0",
+    "yaml": "^2.5.1"
+  },
+  "devDependencies": {
+    "@types/blessed": "^0.1.27",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.9"
+  }
+}

@@ -1,0 +1,67 @@
+type_id: review
+type_name: 方案评审
+description: 多角色自动评审方案，输出优点、风险、建议和结论
+
+goal_schema:
+  required:
+    - topic
+    - proposal
+  optional:
+    - decision_threshold
+
+stage_templates:
+  - stage_id: framing
+    stage_name: 评审开场
+    execution_mode: normal
+    stage_goal: 明确评审对象、评审维度和期望产物
+    speaker_roles:
+      - facilitator
+
+  - stage_id: review_round
+    stage_name: 多维评审
+    execution_mode: turn
+    stage_goal: 从产品、技术、市场、风险角度评审方案
+    max_turns: 6
+    participant_rule:
+      include_roles:
+        - product_manager
+        - engineer
+        - market_analyst
+        - critic_agent
+    speaking_strategy:
+      type: reviewer_once_each
+
+  - stage_id: decision
+    stage_name: 结论决策
+    execution_mode: turn
+    stage_goal: 形成修改建议、风险处置和决策结论
+    max_turns: 4
+    participant_rule:
+      include_roles:
+        - facilitator
+        - product_manager
+        - engineer
+        - critic_agent
+    speaking_strategy:
+      type: event_driven
+
+  - stage_id: final_summary
+    stage_name: 最终总结
+    execution_mode: normal
+    stage_goal: 输出结构化评审结果
+    speaker_roles:
+      - summarizer
+
+default_agent_roles:
+  - facilitator
+  - product_manager
+  - engineer
+  - market_analyst
+  - critic_agent
+  - summarizer
+
+default_controller_policy:
+  max_total_turns: 20
+  max_events_per_turn: 3
+
+output_schema: review_output

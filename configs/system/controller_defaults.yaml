@@ -1,0 +1,23 @@
+controller:
+  max_total_turns: 30
+  max_events_per_turn: 3
+  max_responses_per_event: 2
+  recent_message_limit: 10
+  outputs_dir: runs
+
+event_queue_policy:
+  queue_type: priority_queue
+  max_events_per_turn: 3
+  max_responses_per_event: 2
+  merge_similar_events: true
+  suppress_low_value_events: true
+
+context_policy:
+  recent_message_limit: 10
+  include_stage_outputs: true
+
+user_intervention_policy:
+  allow_pause: true
+  allow_stop: true
+  allow_insert_message: true
+  allow_force_agent_speak: true

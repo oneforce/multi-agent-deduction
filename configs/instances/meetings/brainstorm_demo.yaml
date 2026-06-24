@@ -1,0 +1,35 @@
+meeting_id: meeting_001
+meeting_type_id: brainstorm
+title: AI 编程助手增长方案头脑风暴
+
+goal:
+  topic: 如何提升 AI 编程助手的用户留存
+  constraints:
+    - 面向独立开发者
+    - 低预算增长
+    - 优先考虑两周内可验证的动作
+  target_audience: 独立开发者和小型工程团队
+
+input_materials:
+  - 当前产品具备代码问答、代码修改、测试生成和终端协作能力
+  - 用户反馈显示首次激活快，但第二周回访率不足
+  - 团队希望找到低预算、可快速验证的增长方向
+
+agent_overrides:
+  - agent_template_id: creative_agent_template
+    instance_name: 创意专家
+    model_config:
+      provider: mock
+      model: deterministic-meeting-agent
+      generation_params:
+        temperature: 0.8
+        max_tokens: 1000
+        top_p: 1.0
+  - agent_template_id: critic_agent_template
+    enabled: true
+
+stage_overrides:
+  - stage_id: divergent_ideas
+    max_turns: 4
+  - stage_id: convergence
+    max_turns: 3

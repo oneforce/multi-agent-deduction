@@ -1,0 +1,19 @@
+meeting_id: meeting_review_001
+meeting_type_id: review
+title: 继续上次工作功能方案评审
+
+goal:
+  topic: AI 编程助手继续上次工作功能
+  proposal: 为用户保存会话摘要、相关文件、测试状态和下一步建议，在下次打开项目时一键恢复工作上下文。
+  decision_threshold: 两周内能做出可验证原型，并能衡量第二次使用率变化
+
+input_materials:
+  - 目标用户经常在多个小项目间切换
+  - 当前产品已经有会话摘要和文件修改能力
+  - 团队希望优先验证留存影响，而不是一次性做完整长期记忆
+
+stage_overrides:
+  - stage_id: review_round
+    max_turns: 4
+  - stage_id: decision
+    max_turns: 3

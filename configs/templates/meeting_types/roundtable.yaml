@@ -1,0 +1,69 @@
+type_id: roundtable
+type_name: 多角色圆桌
+description: 多角色围绕议题展开观点表达、互相回应和结论沉淀
+
+goal_schema:
+  required:
+    - topic
+  optional:
+    - roles_focus
+
+stage_templates:
+  - stage_id: opening
+    stage_name: 开场
+    execution_mode: normal
+    stage_goal: 明确圆桌议题和每个角色的关注点
+    speaker_roles:
+      - moderator
+
+  - stage_id: perspective_round
+    stage_name: 观点陈述
+    execution_mode: turn
+    stage_goal: 每个角色给出初始立场
+    max_turns: 5
+    participant_rule:
+      include_roles:
+        - product_manager
+        - engineer
+        - market_analyst
+        - critic_agent
+        - creative_agent
+    speaking_strategy:
+      type: reviewer_once_each
+
+  - stage_id: response_round
+    stage_name: 交叉回应
+    execution_mode: turn
+    stage_goal: 围绕分歧、机会和风险互相回应
+    max_turns: 5
+    participant_rule:
+      include_roles:
+        - product_manager
+        - engineer
+        - market_analyst
+        - critic_agent
+        - creative_agent
+    speaking_strategy:
+      type: event_driven
+
+  - stage_id: final_summary
+    stage_name: 最终总结
+    execution_mode: normal
+    stage_goal: 输出圆桌共识、分歧和后续动作
+    speaker_roles:
+      - summarizer
+
+default_agent_roles:
+  - moderator
+  - product_manager
+  - engineer
+  - market_analyst
+  - critic_agent
+  - creative_agent
+  - summarizer
+
+default_controller_policy:
+  max_total_turns: 20
+  max_events_per_turn: 3
+
+output_schema: roundtable_output

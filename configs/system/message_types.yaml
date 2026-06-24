@@ -1,0 +1,11 @@
+message_types:
+  - opinion
+  - question
+  - answer
+  - critique
+  - support
+  - clarification
+  - summary
+  - decision
+  - instruction
+  - system_notice

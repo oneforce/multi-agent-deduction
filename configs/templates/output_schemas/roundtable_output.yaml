@@ -1,0 +1,7 @@
+schema_id: roundtable_output
+fields:
+  - perspectives
+  - agreements
+  - disagreements
+  - decisions
+  - next_actions

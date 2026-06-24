@@ -1,0 +1,49 @@
+meeting_id: meeting_deepseek_001
+meeting_type_id: brainstorm
+title: DeepSeek 真实模型测试：AI 编程助手增长头脑风暴
+
+goal:
+  topic: 如何提升 AI 编程助手的用户留存
+  constraints:
+    - 面向独立开发者
+    - 低预算增长
+    - 使用 DeepSeek 真实模型逐步验证
+  target_audience: 独立开发者和小型工程团队
+
+input_materials:
+  - 当前产品具备代码问答、代码修改、测试生成和终端协作能力
+  - 用户反馈显示首次激活快，但第二周回访率不足
+  - 本实例用于验证真实 DeepSeek API 调用，不是 mock
+
+agent_overrides:
+  - agent_template_id: facilitator_template
+    model_config: &deepseek_model
+      provider: deepseek
+      model: deepseek-v4-flash
+      base_url: https://api.deepseek.com
+      api_key_env: DEEPSEEK_API_KEY
+      response_format: json_object
+      thinking:
+        type: disabled
+      generation_params:
+        temperature: 0.4
+        max_tokens: 1200
+        top_p: 1.0
+  - agent_template_id: creative_agent_template
+    model_config: *deepseek_model
+  - agent_template_id: product_manager_template
+    model_config: *deepseek_model
+  - agent_template_id: market_analyst_template
+    model_config: *deepseek_model
+  - agent_template_id: critic_agent_template
+    model_config: *deepseek_model
+  - agent_template_id: engineer_template
+    model_config: *deepseek_model
+  - agent_template_id: summarizer_template
+    model_config: *deepseek_model
+
+stage_overrides:
+  - stage_id: divergent_ideas
+    max_turns: 2
+  - stage_id: convergence
+    max_turns: 2

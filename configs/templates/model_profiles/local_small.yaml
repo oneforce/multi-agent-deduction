@@ -1,0 +1,7 @@
+profile_id: local_small
+provider: mock
+model: deterministic-meeting-agent
+generation_params:
+  temperature: 0.2
+  max_tokens: 900
+  top_p: 1.0

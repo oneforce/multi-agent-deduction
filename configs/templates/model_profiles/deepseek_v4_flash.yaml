@@ -1,0 +1,12 @@
+profile_id: deepseek_v4_flash
+provider: deepseek
+model: deepseek-v4-flash
+base_url: https://api.deepseek.com
+api_key_env: DEEPSEEK_API_KEY
+response_format: json_object
+thinking:
+  type: disabled
+generation_params:
+  temperature: 0.4
+  max_tokens: 1200
+  top_p: 1.0

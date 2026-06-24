@@ -1,0 +1,7 @@
+schema_id: brainstorm_output
+fields:
+  - ideas
+  - categories
+  - risks
+  - open_questions
+  - recommendations

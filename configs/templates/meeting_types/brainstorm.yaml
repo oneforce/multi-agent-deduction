@@ -1,0 +1,91 @@
+type_id: brainstorm
+type_name: 头脑风暴
+description: 多 Agent 自动发散、补充、质疑、收敛创意
+
+goal_schema:
+  required:
+    - topic
+  optional:
+    - constraints
+    - target_audience
+
+stage_templates:
+  - stage_id: opening
+    stage_name: 开场
+    execution_mode: normal
+    stage_goal: 明确问题、边界和讨论目标
+    speaker_roles:
+      - facilitator
+    output_rule:
+      type: structured
+
+  - stage_id: divergent_ideas
+    stage_name: 发散创意
+    execution_mode: turn
+    stage_goal: 产生多方向创意并暴露假设
+    max_turns: 6
+    participant_rule:
+      include_roles:
+        - creative_agent
+        - product_manager
+        - market_analyst
+        - critic_agent
+    speaking_strategy:
+      type: event_driven
+      allow_agent_readiness: true
+    completion_condition:
+      max_turns: 6
+      no_high_priority_events: true
+    output_rule:
+      type: structured
+      schema:
+        ideas: list
+        open_questions: list
+
+  - stage_id: convergence
+    stage_name: 收敛筛选
+    execution_mode: turn
+    stage_goal: 筛选高价值创意并形成推荐方向
+    max_turns: 4
+    participant_rule:
+      include_roles:
+        - product_manager
+        - engineer
+        - critic_agent
+        - facilitator
+    speaking_strategy:
+      type: reviewer_once_each
+    completion_condition:
+      max_turns: 4
+      required_outputs:
+        - recommendations
+    output_rule:
+      type: structured
+
+  - stage_id: final_summary
+    stage_name: 最终总结
+    execution_mode: normal
+    stage_goal: 输出结构化创意结果
+    speaker_roles:
+      - summarizer
+    output_rule:
+      type: structured
+
+default_agent_roles:
+  - facilitator
+  - creative_agent
+  - product_manager
+  - market_analyst
+  - critic_agent
+  - engineer
+  - summarizer
+
+default_controller_policy:
+  max_total_turns: 20
+  max_events_per_turn: 3
+
+default_context_policy:
+  recent_message_limit: 10
+  include_stage_outputs: true
+
+output_schema: brainstorm_output

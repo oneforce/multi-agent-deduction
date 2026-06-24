@@ -1,0 +1,22 @@
+meeting_id: meeting_roundtable_001
+meeting_type_id: roundtable
+title: AI 编程助手低预算增长圆桌
+
+goal:
+  topic: 低预算提升 AI 编程助手第二周留存
+  roles_focus:
+    - 产品价值
+    - 技术实现成本
+    - 市场传播切入
+    - 风险和验证方式
+
+input_materials:
+  - 用户首次体验满意度较高，但第二周留存偏低
+  - 预算有限，优先考虑内容、工作流和产品内触发
+  - 希望输出共识、分歧和下一步实验
+
+stage_overrides:
+  - stage_id: perspective_round
+    max_turns: 4
+  - stage_id: response_round
+    max_turns: 4

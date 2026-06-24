@@ -1,0 +1,26 @@
+system_events:
+  - meeting_started
+  - meeting_paused
+  - meeting_resumed
+  - meeting_stopped
+  - stage_started
+  - stage_completed
+  - stage_transition_requested
+  - agent_added
+  - agent_disabled
+  - user_intervention_received
+  - final_summary_requested
+
+discussion_events:
+  - opinion_created
+  - question_raised
+  - critique_raised
+  - support_added
+  - conflict_detected
+  - risk_identified
+  - summary_requested
+  - decision_requested
+  - clarification_requested
+  - repetition_detected
+
+domain_events: {}
