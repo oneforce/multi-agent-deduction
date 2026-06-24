@@ -7,8 +7,11 @@ import { MeetingController } from "./runtime/meetingController";
 import type {
   AgentTemplate,
   EventHandlingRecord,
+  MeetingEvent,
   MeetingRuntimeSnapshot,
+  Message,
   RuntimePatch,
+  StageOutput,
   StageTemplate,
 } from "./types";
 
@@ -1324,7 +1327,7 @@ class MeetingTui {
       "messages / 消息                   查看消息",
       "events / 事件                     查看事件",
       "handlers / 事件处理器             查看 event 被哪些处理器消费",
-      "timeline / 时序图                 查看阶段/智能体/消息/事件/处理器时序",
+      "timeline / 时序图                 查看阶段/智能体/消息/事件/处理器/核心对象时序",
       "commands / 命令                   快速查看命令",
       "collapse all / 折叠 all           折叠全部时序阶段",
       "expand all / 展开 all             展开全部时序阶段",
@@ -1359,7 +1362,7 @@ class MeetingTui {
       "  messages                   消息",
       "  events                     事件",
       "  handlers                   事件处理器",
-      "  timeline                   时序图",
+      "  timeline                   时序图，包含 MSG/EVT/HND/OBJ",
       "  outputs                    阶段输出",
       "  final                      最终输出",
       "  memory                     记忆",
@@ -1549,6 +1552,211 @@ function groupHandlingRecords(
   }));
 }
 
+interface CoreTimelineRecord {
+  object: string;
+  action: string;
+  detail: string;
+  stageId: string;
+  createdAt: string;
+  sortKey: string;
+}
+
+function coreTimelineRecords(
+  snapshot: MeetingRuntimeSnapshot,
+  stageId: string,
+): CoreTimelineRecord[] {
+  const records: CoreTimelineRecord[] = [];
+  const add = (record: Omit<CoreTimelineRecord, "stageId"> & { stageId?: string | null }) => {
+    const normalizedStageId = record.stageId ?? "meeting";
+    if (normalizedStageId !== stageId) {
+      return;
+    }
+    records.push({
+      ...record,
+      stageId: normalizedStageId,
+    });
+  };
+
+  for (const [index, event] of snapshot.events.entries()) {
+    for (const record of coreRecordsForEvent(event, index)) {
+      add(record);
+    }
+  }
+
+  for (const [index, message] of snapshot.messages.entries()) {
+    for (const record of coreRecordsForMessage(snapshot, message, index)) {
+      add(record);
+    }
+  }
+
+  for (const [index, stageOutput] of snapshot.stage_outputs.entries()) {
+    for (const record of coreRecordsForStageOutput(stageOutput, index)) {
+      add(record);
+    }
+  }
+
+  if (snapshot.final_output) {
+    add({
+      object: "OutputManager",
+      action: "build_final_output",
+      detail: `生成最终输出，汇总 ${snapshot.stage_outputs.length} 个阶段输出、关键结论、风险和后续动作`,
+      stageId: "meeting",
+      createdAt: snapshot.updated_at,
+      sortKey: `${snapshot.updated_at}-z-final-output`,
+    });
+  }
+
+  return records.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+}
+
+function coreRecordsForEvent(
+  event: MeetingEvent,
+  index: number,
+): Array<Omit<CoreTimelineRecord, "stageId"> & { stageId?: string | null }> {
+  const stageId = event.stage_id ?? "meeting";
+  const eventLabel = `${event.event_type} (${event.event_id})`;
+  const source = event.source_agent_id ?? "controller";
+  const records: Array<Omit<CoreTimelineRecord, "stageId"> & { stageId?: string | null }> = [];
+
+  if (source === "user") {
+    records.push({
+      object: "InterventionManager",
+      action: "apply_user_patch",
+      detail: `处理用户干预并生成事件：${eventLabel}`,
+      stageId,
+      createdAt: event.created_at,
+      sortKey: `${event.created_at}-a-event-${index}-intervention`,
+    });
+  } else if (source === "controller") {
+    records.push({
+      object: "MeetingController",
+      action: "emit_system_event",
+      detail: `控制器生成系统事件：${eventLabel}`,
+      stageId,
+      createdAt: event.created_at,
+      sortKey: `${event.created_at}-a-event-${index}-controller`,
+    });
+  } else {
+    records.push({
+      object: "AgentInvoker",
+      action: "normalize_agent_events",
+      detail: `把智能体 ${source} 的输出转换为事件：${eventLabel}`,
+      stageId,
+      createdAt: event.created_at,
+      sortKey: `${event.created_at}-a-event-${index}-invoker`,
+    });
+  }
+
+  records.push({
+    object: "EventQueue",
+    action: "enqueue_event",
+    detail: `事件进入优先级队列：${eventLabel}，priority=${event.priority}`,
+    stageId,
+    createdAt: event.created_at,
+    sortKey: `${event.created_at}-b-event-${index}-queue`,
+  });
+
+  return records;
+}
+
+function coreRecordsForMessage(
+  snapshot: MeetingRuntimeSnapshot,
+  message: Message,
+  index: number,
+): Array<Omit<CoreTimelineRecord, "stageId"> & { stageId?: string | null }> {
+  const stageId = message.stage_id;
+  const sender = senderName(snapshot, message.sender_id, message.sender_type);
+  if (message.sender_type === "user") {
+    return [
+      {
+        object: "InterventionManager",
+        action: "insert_user_message",
+        detail: `用户消息写入会议上下文：${snippet(message.content, 90)}`,
+        stageId,
+        createdAt: message.created_at,
+        sortKey: `${message.created_at}-a-message-${index}-user`,
+      },
+      {
+        object: "MemoryManager",
+        action: "commit_user_message",
+        detail: `用户消息进入可见消息历史：${message.message_id}`,
+        stageId,
+        createdAt: message.created_at,
+        sortKey: `${message.created_at}-z-message-${index}-memory`,
+      },
+    ];
+  }
+
+  const agent = snapshot.agents.find((item) => item.instance_id === message.sender_id);
+  const provider = agent ? `${agent.model_config.provider}/${agent.model_config.model}` : "unknown_provider";
+  return [
+    {
+      object: "SpeakerSelector",
+      action: "select_speaker",
+      detail: `选择 ${sender} 作为 ${message.turn_id} 的发言者`,
+      stageId,
+      createdAt: message.created_at,
+      sortKey: `${message.created_at}-a-message-${index}-selector`,
+    },
+    {
+      object: "ContextBuilder",
+      action: "build_context_package",
+      detail: `为 ${sender} 构造上下文包，包含阶段、轮次、active_events、最近消息和记忆`,
+      stageId,
+      createdAt: message.created_at,
+      sortKey: `${message.created_at}-b-message-${index}-context`,
+    },
+    {
+      object: "AgentInvoker",
+      action: "invoke_agent",
+      detail: `调用 ${sender}，期望输出 ${message.message_type}，provider=${provider}`,
+      stageId,
+      createdAt: message.created_at,
+      sortKey: `${message.created_at}-c-message-${index}-invoker`,
+    },
+    {
+      object: provider,
+      action: "generate_message",
+      detail: `生成消息 ${message.message_id}：${snippet(message.content, 100)}`,
+      stageId,
+      createdAt: message.created_at,
+      sortKey: `${message.created_at}-d-message-${index}-provider`,
+    },
+    {
+      object: "MemoryManager",
+      action: "commit_invocation",
+      detail: `提交 ${sender} 的消息到 meeting_memory、stage_memory 和 agent_private_memory`,
+      stageId,
+      createdAt: message.created_at,
+      sortKey: `${message.created_at}-z-message-${index}-memory`,
+    },
+  ];
+}
+
+function coreRecordsForStageOutput(
+  stageOutput: StageOutput,
+  index: number,
+): Array<Omit<CoreTimelineRecord, "stageId"> & { stageId?: string | null }> {
+  return [
+    {
+      object: "OutputManager",
+      action: "build_stage_output",
+      detail: `生成阶段输出：${stageOutput.stage_name}，字段=${Object.keys(stageOutput.output).join(", ") || "无"}`,
+      stageId: stageOutput.stage_id,
+      createdAt: stageOutput.created_at,
+      sortKey: `${stageOutput.created_at}-x-stage-output-${index}-output`,
+    },
+    {
+      object: "MemoryManager",
+      action: "commit_stage_output",
+      detail: `把阶段输出写入 stage_memory，并同步阶段摘要到 meeting_memory`,
+      stageId: stageOutput.stage_id,
+      createdAt: stageOutput.created_at,
+      sortKey: `${stageOutput.created_at}-y-stage-output-${index}-memory`,
+    },
+  ];
+}
+
 function renderTimeline(
   snapshot: MeetingRuntimeSnapshot,
   collapsedStages: Set<string>,
@@ -1562,6 +1770,7 @@ function renderTimeline(
     "  MSG = Message，智能体/用户发出的会议消息",
     "  EVT = Event，进入队列并影响后续调度的事件",
     "  HND = Handler，事件从队列取出后被处理器消费的记录",
+    "  OBJ = Object，会议运行时核心对象的活动记录",
     "  [-] = 已展开，[+] = 已折叠，* = 当前阶段",
     "",
     "折叠/展开命令：collapse all、expand all、collapse <stage_id>、expand <stage_id>",
@@ -1575,12 +1784,13 @@ function renderTimeline(
     const handlingRecords = (snapshot.event_handling_log ?? []).filter(
       (record) => (record.stage_id ?? "meeting") === stageId,
     );
+    const coreRecords = coreTimelineRecords(snapshot, stageId);
     const isCollapsed = collapsedStages.has(stageId);
     const currentMark = stageId === currentStageId ? "*" : " ";
     const stageLabel = stage ? `${stage.stage_id} - ${stage.stage_name}` : stageId;
     lines.push(
       `${isCollapsed ? "[+]" : "[-]"}${currentMark} ${stageLabel}  ` +
-        `(MSG ${messages.length} / EVT ${events.length} / HND ${handlingRecords.length})`,
+        `(MSG ${messages.length} / EVT ${events.length} / HND ${handlingRecords.length} / OBJ ${coreRecords.length})`,
     );
 
     if (isCollapsed) {
@@ -1607,10 +1817,16 @@ function renderTimeline(
         sortKey: `${record.created_at}-h-${index}`,
         record,
       })),
+      ...coreRecords.map((record) => ({
+        kind: "core" as const,
+        createdAt: record.createdAt,
+        sortKey: record.sortKey,
+        record,
+      })),
     ].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
     if (items.length === 0) {
-      lines.push("  暂无消息、事件或处理记录。");
+      lines.push("  暂无消息、事件、处理记录或核心对象活动。");
       lines.push("");
       continue;
     }
@@ -1639,6 +1855,14 @@ function renderTimeline(
           `      ${item.record.handler_id} / ${item.record.phase} / turn ${item.record.turn_index}: ` +
             `${snippet(item.record.effect, 120)}`,
         );
+        continue;
+      }
+
+      if (item.kind === "core") {
+        lines.push(
+          `  ${formatTime(item.createdAt)} OBJ ${item.record.object}: ${item.record.action}`,
+        );
+        lines.push(`      ${snippet(item.record.detail, 140)}`);
         continue;
       }
 
@@ -1674,6 +1898,12 @@ function timelineStageIds(snapshot: MeetingRuntimeSnapshot): string[] {
   }
   for (const record of snapshot.event_handling_log ?? []) {
     ids.add(record.stage_id ?? "meeting");
+  }
+  for (const stageOutput of snapshot.stage_outputs) {
+    ids.add(stageOutput.stage_id);
+  }
+  if (snapshot.final_output) {
+    ids.add("meeting");
   }
   return [...ids];
 }
