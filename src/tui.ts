@@ -546,6 +546,7 @@ class MeetingTui {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logLine(`{red-fg}错误：{/red-fg}${message}`);
+      await this.handleRuntimeError(error);
     } finally {
       this.busy = false;
       this.renderStatus();
@@ -719,6 +720,7 @@ class MeetingTui {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logLine(`{red-fg}错误：{/red-fg}${message}`);
+      await this.handleRuntimeError(error);
     } finally {
       this.busy = false;
       this.renderStatus();
@@ -1181,6 +1183,26 @@ class MeetingTui {
     this.logLine(`产物已保存：${this.lastRunDir}`);
   }
 
+  private async handleRuntimeError(error: unknown): Promise<void> {
+    if (!this.controller) {
+      this.setView("异常", renderErrorView(error, null, null));
+      return;
+    }
+
+    try {
+      if (this.controller.snapshot.status !== "failed") {
+        this.controller.recordFailure(error, "tui_operation_failed");
+      }
+      this.lastRunDir = await this.controller.saveArtifacts();
+      this.logLine(`失败状态已保存：${this.lastRunDir}`);
+      this.setView("异常", renderErrorView(error, this.controller.snapshot, this.lastRunDir));
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : String(saveError);
+      this.logLine(`{red-fg}保存失败状态也失败：{/red-fg}${message}`);
+      this.setView("异常", renderErrorView(error, this.snapshotOrNull(), this.lastRunDir));
+    }
+  }
+
   private async pickAgent(title: string): Promise<string | null> {
     const controller = this.requireController();
     const labels = controller.snapshot.agents.map(
@@ -1465,6 +1487,43 @@ function renderStage(stage: StageTemplate, index: number, current: boolean): str
     `  发言角色：${(stage.speaker_roles ?? stage.participant_rule?.include_roles ?? []).join(", ") || "默认"}`,
     `  发言策略：${stage.speaking_strategy?.type ?? "round_robin"}`,
   ].join("\n");
+}
+
+function renderErrorView(
+  error: unknown,
+  snapshot: MeetingRuntimeSnapshot | null,
+  runDir: string | null,
+): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const lastError = snapshot?.last_error;
+  const lines = [
+    "运行异常",
+    "",
+    `错误：${message}`,
+    `状态：${snapshot?.status ?? "无活动会议"}`,
+    `动作：${lastError?.action ?? "unknown"}`,
+    `时间：${lastError?.created_at ?? new Date().toISOString()}`,
+    `产物目录：${runDir ?? "未保存"}`,
+    "",
+    "当前快照：",
+    `  meeting_id：${snapshot?.meeting_instance.meeting_id ?? "无"}`,
+    `  消息数：${snapshot?.messages.length ?? 0}`,
+    `  事件数：${snapshot?.events.length ?? 0}`,
+    `  队列事件数：${snapshot?.queued_events.length ?? 0}`,
+    `  阶段输出数：${snapshot?.stage_outputs.length ?? 0}`,
+    `  最终输出：${snapshot?.final_output ? "已生成" : "未生成"}`,
+    "",
+    "你可以继续查看：",
+    "  messages / 消息",
+    "  events / 事件",
+    "  timeline / 时序图",
+    "  save / 保存",
+    "",
+  ];
+  if (lastError?.stack) {
+    lines.push(`Stack:\n${lastError.stack}`);
+  }
+  return lines.join("\n");
 }
 
 function renderEventHandlingLog(snapshot: MeetingRuntimeSnapshot): string {

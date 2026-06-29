@@ -70,6 +70,7 @@ export class MeetingController {
     const controller = new MeetingController({ outputRoot });
     controller.snapshotValue = JSON.parse(raw) as MeetingRuntimeSnapshot;
     controller.snapshotValue.event_handling_log ??= [];
+    controller.snapshotValue.last_error ??= null;
     return controller;
   }
 
@@ -103,6 +104,7 @@ export class MeetingController {
       events: [],
       queued_events: [],
       event_handling_log: [],
+      last_error: null,
       stage_outputs: [],
       final_output: null,
       meeting_memory: this.memoryManager.createMeetingMemory(resolved.meetingInstance.goal),
@@ -163,32 +165,59 @@ export class MeetingController {
   }
 
   async runToCompletion(maxSteps = 100): Promise<RunResult> {
-    const steps: StepResult[] = [];
-    for (let index = 0; index < maxSteps; index += 1) {
-      if (["completed", "stopped", "failed", "paused"].includes(this.snapshot.status)) {
-        break;
+    try {
+      const steps: StepResult[] = [];
+      for (let index = 0; index < maxSteps; index += 1) {
+        if (["completed", "stopped", "failed", "paused"].includes(this.snapshot.status)) {
+          break;
+        }
+        const result = await this.step();
+        steps.push(result);
+        if (["completed", "stopped", "failed", "paused"].includes(result.status)) {
+          break;
+        }
       }
-      const result = await this.step();
-      steps.push(result);
-      if (["completed", "stopped", "failed", "paused"].includes(result.status)) {
-        break;
+
+      if (!["completed", "stopped", "paused"].includes(this.snapshot.status)) {
+        throw new Error(`会议在 ${maxSteps} 步内未能结束，已触发保护。`);
       }
-    }
 
-    if (!["completed", "stopped", "paused"].includes(this.snapshot.status)) {
-      this.snapshot.status = "failed";
-      throw new Error(`会议在 ${maxSteps} 步内未能结束，已触发保护。`);
+      const runDir = await this.saveArtifacts();
+      return {
+        status: this.snapshot.status,
+        steps,
+        run_dir: runDir,
+      };
+    } catch (error) {
+      this.recordFailure(error, "run_to_completion_failed");
+      const runDir = await this.saveArtifacts();
+      throw new Error(`${errorMessage(error)}；失败状态已保存：${runDir}`);
     }
-
-    const runDir = await this.saveArtifacts();
-    return {
-      status: this.snapshot.status,
-      steps,
-      run_dir: runDir,
-    };
   }
 
   async step(): Promise<StepResult> {
+    try {
+      return await this.stepInternal();
+    } catch (error) {
+      if (this.snapshotValue) {
+        this.recordFailure(error, "step_failed");
+      }
+      throw error;
+    }
+  }
+
+  recordFailure(error: unknown, action: string): void {
+    this.snapshot.status = "failed";
+    this.snapshot.last_error = {
+      message: errorMessage(error),
+      action,
+      stack: error instanceof Error ? error.stack : undefined,
+      created_at: nowIso(),
+    };
+    this.snapshot.updated_at = nowIso();
+  }
+
+  private async stepInternal(): Promise<StepResult> {
     if (this.snapshot.status === "paused") {
       return this.result("paused", "meeting_paused");
     }
@@ -629,4 +658,8 @@ function findTemplateBySelector(
       ].some((value) => value.toLowerCase().includes(normalized)),
     ) ?? null
   );
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

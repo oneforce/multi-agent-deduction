@@ -95,6 +95,8 @@ runs/meeting_001/
   memory.yaml
 ```
 
+如果运行中发生异常，例如真实模型调用失败或 `max-steps` 保护触发，Runtime 会把当前快照标记为 `failed` 并仍然写入上述产物；错误详情保存在 `state.json` 的 `last_error` 字段，TUI 右侧也会显示失败产物目录。
+
 ## CLI
 
 启动 TUI 逐项验证 MVP：

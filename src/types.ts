@@ -229,6 +229,13 @@ export interface EventHandlingRecord {
   metadata?: Record<string, unknown>;
 }
 
+export interface RuntimeErrorRecord {
+  message: string;
+  action: string;
+  stack?: string;
+  created_at: string;
+}
+
 export interface ContextPackage {
   meeting_context: {
     meeting_id: string;
@@ -361,6 +368,7 @@ export interface MeetingRuntimeSnapshot {
   events: MeetingEvent[];
   queued_events: MeetingEvent[];
   event_handling_log: EventHandlingRecord[];
+  last_error: RuntimeErrorRecord | null;
   stage_outputs: StageOutput[];
   final_output: FinalOutput | null;
   meeting_memory: MeetingMemory;

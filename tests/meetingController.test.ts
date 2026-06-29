@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -103,5 +103,18 @@ describe("MeetingController", () => {
         (record) => record.handler_id === "speaker_selector",
       ),
     ).toBe(true);
+  });
+
+  it("saves failed partial state when run protection aborts execution", async () => {
+    const controller = new MeetingController({ outputRoot });
+    await controller.initializeFromInstance(instancePath);
+
+    await expect(controller.runToCompletion(1)).rejects.toThrow("失败状态已保存");
+
+    const raw = await readFile(path.join(outputRoot, "meeting_001", "state.json"), "utf8");
+    const state = JSON.parse(raw) as typeof controller.snapshot;
+    expect(state.status).toBe("failed");
+    expect(state.last_error?.message).toContain("会议在 1 步内未能结束");
+    expect(state.messages.length).toBeGreaterThan(0);
   });
 });

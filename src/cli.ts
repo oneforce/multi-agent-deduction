@@ -41,20 +41,25 @@ program
   .action(async (instance: string, options) => {
     await withCliErrors(async () => {
       const controller = await loadOrInitialize(instance, options.out, Boolean(options.fresh));
-      applyOptionInterventions(controller, options);
-      const step = await controller.step();
-      const runDir = await controller.saveArtifacts();
-      console.log(`step: ${step.action}`);
-      console.log(`status: ${step.status}`);
-      if (step.stage_id) {
-        console.log(`stage: ${step.stage_id}`);
+      try {
+        applyOptionInterventions(controller, options);
+        const step = await controller.step();
+        const runDir = await controller.saveArtifacts();
+        console.log(`step: ${step.action}`);
+        console.log(`status: ${step.status}`);
+        if (step.stage_id) {
+          console.log(`stage: ${step.stage_id}`);
+        }
+        if (step.speaker_id) {
+          console.log(`speaker: ${step.speaker_id}`);
+        }
+        console.log(`messages: ${step.message_count}`);
+        console.log(`events: ${step.event_count}`);
+        console.log(`artifacts: ${runDir}`);
+      } catch (error) {
+        const runDir = await saveFailedController(controller, error, "cli_step_failed");
+        throw new Error(`${errorMessage(error)}；失败状态已保存：${runDir}`);
       }
-      if (step.speaker_id) {
-        console.log(`speaker: ${step.speaker_id}`);
-      }
-      console.log(`messages: ${step.message_count}`);
-      console.log(`events: ${step.event_count}`);
-      console.log(`artifacts: ${runDir}`);
     });
   });
 
@@ -108,6 +113,11 @@ program
       console.log(`current_turn: ${snapshot.current_turn_index}`);
       console.log(`messages: ${snapshot.messages.length}`);
       console.log(`events: ${snapshot.events.length}`);
+      if (snapshot.last_error) {
+        console.log(`last_error: ${snapshot.last_error.message}`);
+        console.log(`last_error_action: ${snapshot.last_error.action}`);
+        console.log(`last_error_at: ${snapshot.last_error.created_at}`);
+      }
       console.log("agents:");
       for (const agent of snapshot.agents) {
         console.log(
@@ -226,4 +236,19 @@ async function withCliErrors(fn: () => Promise<void>): Promise<void> {
     console.error(`error: ${message}`);
     process.exitCode = 1;
   }
+}
+
+async function saveFailedController(
+  controller: MeetingController,
+  error: unknown,
+  action: string,
+): Promise<string> {
+  if (controller.snapshot.status !== "failed") {
+    controller.recordFailure(error, action);
+  }
+  return controller.saveArtifacts();
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
