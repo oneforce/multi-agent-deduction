@@ -970,6 +970,10 @@ class MeetingTui {
         `队列事件数：${snapshot.queued_events.length}`,
         `阶段输出数：${snapshot.stage_outputs.length}`,
         `最终输出：${snapshot.final_output ? "已生成" : "未生成"}`,
+        `运行警告：${snapshot.runtime_warnings.length}`,
+        snapshot.runtime_warnings.at(-1)
+          ? `最新警告：${snapshot.runtime_warnings.at(-1)?.message}`
+          : "最新警告：无",
         `产物目录：${this.lastRunDir ?? "尚未保存"}`,
         "",
         "会议目标：",
@@ -1295,7 +1299,7 @@ class MeetingTui {
       [
         "{bold}多智能体会议系统 MVP TUI{/bold}",
         `会议实例：${this.selectedInstancePath ? path.relative(process.cwd(), this.selectedInstancePath) : "无"}`,
-        `会议：${snapshot?.meeting_instance.meeting_id ?? "未初始化"} | 状态：${snapshot?.status ?? "无"} | 阶段：${stage?.stage_id ?? "无"} | 轮次：${snapshot?.current_turn_index ?? 0} | 消息：${snapshot?.messages.length ?? 0} | 事件：${snapshot?.events.length ?? 0}`,
+        `会议：${snapshot?.meeting_instance.meeting_id ?? "未初始化"} | 状态：${snapshot?.status ?? "无"} | 阶段：${stage?.stage_id ?? "无"} | 轮次：${snapshot?.current_turn_index ?? 0} | 消息：${snapshot?.messages.length ?? 0} | 事件：${snapshot?.events.length ?? 0} | 警告：${snapshot?.runtime_warnings.length ?? 0}`,
         "快捷键：s 单步 | g 运行到结束 | i 插入消息 | f 点名 | d 禁用 | p 暂停 | u 恢复 | a 智能体 | m 消息 | e 事件 | t 时序 | c 命令 | o 输出 | ? 帮助 | q 退出",
       ].join("\n"),
     );

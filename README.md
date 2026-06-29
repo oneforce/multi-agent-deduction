@@ -95,7 +95,7 @@ runs/meeting_001/
   memory.yaml
 ```
 
-如果运行中发生异常，例如真实模型调用失败或 `max-steps` 保护触发，Runtime 会把当前快照标记为 `failed` 并仍然写入上述产物；错误详情保存在 `state.json` 的 `last_error` 字段，TUI 右侧也会显示失败产物目录。
+如果达到 `max-steps` 上限，Runtime 会基于当前部分结果提前生成最终输出并标记为 `completed`，原因记录在 `state.json` 的 `runtime_warnings` 字段。只有真实模型调用失败、缺少 API Key、配置错误等无法继续执行的问题才会标记为 `failed`，错误详情保存在 `last_error` 字段。
 
 ## CLI
 

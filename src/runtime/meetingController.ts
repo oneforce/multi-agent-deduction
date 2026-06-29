@@ -71,6 +71,7 @@ export class MeetingController {
     controller.snapshotValue = JSON.parse(raw) as MeetingRuntimeSnapshot;
     controller.snapshotValue.event_handling_log ??= [];
     controller.snapshotValue.last_error ??= null;
+    controller.snapshotValue.runtime_warnings ??= [];
     return controller;
   }
 
@@ -105,6 +106,7 @@ export class MeetingController {
       queued_events: [],
       event_handling_log: [],
       last_error: null,
+      runtime_warnings: [],
       stage_outputs: [],
       final_output: null,
       meeting_memory: this.memoryManager.createMeetingMemory(resolved.meetingInstance.goal),
@@ -178,8 +180,16 @@ export class MeetingController {
         }
       }
 
+      if (this.snapshot.status === "failed") {
+        throw new Error(this.snapshot.last_error?.message ?? "会议已失败。");
+      }
+
       if (!["completed", "stopped", "paused"].includes(this.snapshot.status)) {
-        throw new Error(`会议在 ${maxSteps} 步内未能结束，已触发保护。`);
+        this.recordWarning(
+          `会议达到 max-steps=${maxSteps}，已基于当前部分结果提前生成最终输出。`,
+          "max_steps_graceful_finalize",
+        );
+        this.finalize();
       }
 
       const runDir = await this.saveArtifacts();
@@ -214,6 +224,15 @@ export class MeetingController {
       stack: error instanceof Error ? error.stack : undefined,
       created_at: nowIso(),
     };
+    this.snapshot.updated_at = nowIso();
+  }
+
+  recordWarning(message: string, action: string): void {
+    this.snapshot.runtime_warnings.push({
+      message,
+      action,
+      created_at: nowIso(),
+    });
     this.snapshot.updated_at = nowIso();
   }
 
@@ -421,6 +440,7 @@ export class MeetingController {
 
   private finalize(): void {
     this.snapshot.status = "completed";
+    this.snapshot.last_error = null;
     this.snapshot.final_output = this.outputManager.buildFinalOutput(this.snapshot, "transcript.md");
     this.snapshot.updated_at = nowIso();
   }

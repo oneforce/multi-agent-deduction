@@ -105,16 +105,19 @@ describe("MeetingController", () => {
     ).toBe(true);
   });
 
-  it("saves failed partial state when run protection aborts execution", async () => {
+  it("gracefully finalizes partial output when max steps are reached", async () => {
     const controller = new MeetingController({ outputRoot });
     await controller.initializeFromInstance(instancePath);
 
-    await expect(controller.runToCompletion(1)).rejects.toThrow("失败状态已保存");
+    const result = await controller.runToCompletion(1);
 
+    expect(result.status).toBe("completed");
     const raw = await readFile(path.join(outputRoot, "meeting_001", "state.json"), "utf8");
     const state = JSON.parse(raw) as typeof controller.snapshot;
-    expect(state.status).toBe("failed");
-    expect(state.last_error?.message).toContain("会议在 1 步内未能结束");
+    expect(state.status).toBe("completed");
+    expect(state.final_output).not.toBeNull();
+    expect(state.last_error).toBeNull();
+    expect(state.runtime_warnings.at(-1)?.message).toContain("max-steps=1");
     expect(state.messages.length).toBeGreaterThan(0);
   });
 });

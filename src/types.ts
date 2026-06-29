@@ -236,6 +236,12 @@ export interface RuntimeErrorRecord {
   created_at: string;
 }
 
+export interface RuntimeWarningRecord {
+  message: string;
+  action: string;
+  created_at: string;
+}
+
 export interface ContextPackage {
   meeting_context: {
     meeting_id: string;
@@ -369,6 +375,7 @@ export interface MeetingRuntimeSnapshot {
   queued_events: MeetingEvent[];
   event_handling_log: EventHandlingRecord[];
   last_error: RuntimeErrorRecord | null;
+  runtime_warnings: RuntimeWarningRecord[];
   stage_outputs: StageOutput[];
   final_output: FinalOutput | null;
   meeting_memory: MeetingMemory;

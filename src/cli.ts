@@ -113,6 +113,12 @@ program
       console.log(`current_turn: ${snapshot.current_turn_index}`);
       console.log(`messages: ${snapshot.messages.length}`);
       console.log(`events: ${snapshot.events.length}`);
+      if (snapshot.runtime_warnings.length > 0) {
+        console.log("runtime_warnings:");
+        for (const warning of snapshot.runtime_warnings) {
+          console.log(`  - ${warning.message}`);
+        }
+      }
       if (snapshot.last_error) {
         console.log(`last_error: ${snapshot.last_error.message}`);
         console.log(`last_error_action: ${snapshot.last_error.action}`);
@@ -217,6 +223,12 @@ function printRunResult(controller: MeetingController, runDir: string, stepCount
   console.log(`messages: ${snapshot.messages.length}`);
   console.log(`events: ${snapshot.events.length}`);
   console.log(`stage_outputs: ${snapshot.stage_outputs.length}`);
+  if (snapshot.runtime_warnings.length > 0) {
+    console.log("runtime_warnings:");
+    for (const warning of snapshot.runtime_warnings) {
+      console.log(`  - ${warning.message}`);
+    }
+  }
   console.log(`artifacts: ${runDir}`);
   if (snapshot.final_output) {
     console.log("");
